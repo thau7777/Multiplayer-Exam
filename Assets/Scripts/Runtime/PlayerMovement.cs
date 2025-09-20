@@ -1,11 +1,6 @@
 using Fusion;
+using Unity.Cinemachine;
 using UnityEngine;
-
-public struct NetworkInputData : INetworkInput
-{
-    public Vector2 moveInput;
-    public bool jumpPressed;
-}
 
 [RequireComponent(typeof(NetworkCharacterController))]
 public class PlayerMovement : NetworkBehaviour
@@ -17,6 +12,7 @@ public class PlayerMovement : NetworkBehaviour
     public float moveSpeed = 5f;
     public float rotationSpeed = 10f;
 
+    private NetworkButtons _buttons;
     private void Awake()
     {
         _controller = GetComponent<NetworkCharacterController>();
@@ -24,8 +20,15 @@ public class PlayerMovement : NetworkBehaviour
 
     public override void Spawned()
     {
-        if (Object.HasInputAuthority)
-            _camera = Camera.main.transform;
+        if (!Object.HasInputAuthority) return;
+
+        _camera = Camera.main.transform;
+        CinemachineCamera cinemachineCamera = FindFirstObjectByType<CinemachineCamera>();
+        if (cinemachineCamera != null)
+        {
+            cinemachineCamera.Follow = transform;
+            cinemachineCamera.LookAt = transform;
+        }
     }
 
     public override void FixedUpdateNetwork()
@@ -33,6 +36,7 @@ public class PlayerMovement : NetworkBehaviour
         if (GetInput(out NetworkInputData data))
         {
             Vector3 move = Vector3.zero;
+
             if (_camera != null)
             {
                 Vector3 forward = _camera.forward;
@@ -54,11 +58,12 @@ public class PlayerMovement : NetworkBehaviour
                 transform.rotation = Quaternion.Slerp(transform.rotation, targetRot, rotationSpeed * Runner.DeltaTime);
             }
 
-            if (data.jumpPressed && _controller.Grounded)
+            // Jump via NetworkButtons
+            if (data.buttons.WasPressed(_buttons, InputButton.Jump) && _controller.Grounded)
             {
                 _controller.Jump();
             }
+            _buttons = data.buttons; // Update the last known button state
         }
     }
-
 }

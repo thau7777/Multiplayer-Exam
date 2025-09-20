@@ -2,57 +2,70 @@ using Fusion;
 using Fusion.Sockets;
 using System;
 using UnityEngine;
-
-public class InputHandler : MonoBehaviour, INetworkRunnerCallbacks
+public enum InputButton
 {
-    private NetworkRunner _runner;
+    Jump,
+}
 
-    // These are for “one-frame” inputs like jump; track state so we don't miss the press
-    private bool _jumpPressed;
-
-    void Awake()
+public struct NetworkInputData : INetworkInput
+{
+    public Vector2 moveInput;
+    public NetworkButtons buttons;
+}
+public class InputHandler : SimulationBehaviour, INetworkRunnerCallbacks, IBeforeUpdate
+{
+    // Accumulated input each frame
+    private Vector2 _moveInput;
+    private NetworkButtons _buttons;
+    private void Awake()
     {
-        // maybe ensure there's a NetworkRunner in scene
-        _runner = FindFirstObjectByType<NetworkRunner>();
-        if (_runner == null)
+        // The InputHandler is on the same GameObject as the NetworkRunner
+        var runner = GetComponent<NetworkRunner>();
+
+        if (runner != null)
         {
-            Debug.LogError("No NetworkRunner found in scene for InputHandler");
+            // Register as callback target
+            runner.AddCallbacks(this);
         }
         else
         {
-            _runner.AddCallbacks(this);
+            Debug.LogError("No NetworkRunner found on this GameObject!");
         }
     }
 
-    void Update()
+
+    // Called every frame *before* Fusion’s simulation tick
+
+    public void BeforeUpdate()
     {
-        // capture jump down in Unity's Update, so we don't miss the frame
-        if (Input.GetKeyDown(KeyCode.Space))
-        {
-            _jumpPressed = true;
-        }
+        Debug.Log("BeforeUpdate called");
+        // Movement input
+        _moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+
+        // Reset buttons each frame
+        _buttons = default;
+
+        // Accumulate single-frame button presses
+        _buttons.Set(InputButton.Jump, Input.GetKeyDown(KeyCode.Space));
     }
 
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
-        if (!runner.IsRunning) return;
-
+        Debug.Log("OnInput called");
+        // Package into NetworkInputData
         NetworkInputData data = new NetworkInputData
         {
-            moveInput = new Vector2(
-                Input.GetAxisRaw("Horizontal"),
-                Input.GetAxisRaw("Vertical")
-            ),
-            jumpPressed = _jumpPressed
+            moveInput = _moveInput,
+            buttons = _buttons
         };
 
         input.Set(data);
 
-        // reset the one-frame input
-        _jumpPressed = false;
+        // Clear one-frame buttons after sending
+        _buttons = default;
     }
 
-    // Required empty implementations
+    // ---------- Required stubs ----------
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player) { }
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, ref NetworkInput input) { }
@@ -65,7 +78,7 @@ public class InputHandler : MonoBehaviour, INetworkRunnerCallbacks
     public void OnSessionListUpdated(NetworkRunner runner, System.Collections.Generic.List<SessionInfo> sessionList) { }
     public void OnCustomAuthenticationResponse(NetworkRunner runner, System.Collections.Generic.Dictionary<string, object> data) { }
     public void OnHostMigration(NetworkRunner runner, HostMigrationToken hostMigrationToken) { }
-    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ArraySegment<byte> data) { }
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, System.ArraySegment<byte> data) { }
     public void OnSceneLoadDone(NetworkRunner runner) { }
     public void OnSceneLoadStart(NetworkRunner runner) { }
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
@@ -83,4 +96,5 @@ public class InputHandler : MonoBehaviour, INetworkRunnerCallbacks
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
     {
     }
+
 }
