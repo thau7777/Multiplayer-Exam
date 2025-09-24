@@ -19,7 +19,9 @@ public class MainMenuUI : Singleton<MainMenuUI>
 
     private void Start()
     {
+        AudioManager.Instance.PlayMusic("MainMenu");
         _runnerManager = FindAnyObjectByType<RunnerManager>();
+        SetCursorVisible(true);
     }
     public void ModifyMainMenuScreen(bool isLoadingScreenOn)
     {
@@ -72,5 +74,10 @@ public class MainMenuUI : Singleton<MainMenuUI>
     public void OnRefreshDone()
     {
         refreshingPanel.SetActive(false);
+    }
+    private void SetCursorVisible(bool visible)
+    {
+        Cursor.visible = visible;
+        Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
     }
 }

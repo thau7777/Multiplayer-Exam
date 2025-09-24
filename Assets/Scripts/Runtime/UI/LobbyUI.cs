@@ -32,25 +32,29 @@ public class LobbyUI : Singleton<LobbyUI>, INetworkRunnerCallbacks
         roomNameText.text = _runner.SessionInfo.Name;
         
     }
-    //private void Start()
-    //{
-    //    RefreshPlayerList();
-    //    print("Did refresh player list");
-    //}
-   
+    private void Start()
+    {
+        SetCursorVisible(true);
+    }
+    private void SetCursorVisible(bool visible)
+    {
+        Cursor.visible = visible;
+        Cursor.lockState = visible ? CursorLockMode.None : CursorLockMode.Locked;
+    }
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
     {
-        //RefreshPlayerList();
+        RefreshPlayerList();
     }
 
     public void OnPlayerLeft(NetworkRunner runner, PlayerRef player)
     {
-        //RefreshPlayerList();
+        RefreshPlayerList();
     }
 
 
     public void RefreshPlayerList()
     {
+        Debug.Log("Refreshing player list...");
         if (playerListParent == null || playerRowPrefab == null) return;
 
         // clear old rows

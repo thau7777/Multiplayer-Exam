@@ -2,6 +2,7 @@ using Fusion;
 using Fusion.Sockets;
 using System;
 using UnityEngine;
+
 public enum InputButton
 {
     Jump,
@@ -11,20 +12,19 @@ public struct NetworkInputData : INetworkInput
 {
     public Vector2 moveInput;
     public NetworkButtons buttons;
+    public float cameraYaw; // <-- add yaw
 }
+
 public class InputHandler : SimulationBehaviour, INetworkRunnerCallbacks, IBeforeUpdate
 {
-    // Accumulated input each frame
-    private Vector2 _moveInput;
-    private NetworkButtons _buttons;
+    private NetworkInputData _accumulatedInput;
+    private bool _resetInput;
+
     private void Awake()
     {
-        // The InputHandler is on the same GameObject as the NetworkRunner
         var runner = GetComponent<NetworkRunner>();
-
         if (runner != null)
         {
-            // Register as callback target
             runner.AddCallbacks(this);
         }
         else
@@ -33,36 +33,36 @@ public class InputHandler : SimulationBehaviour, INetworkRunnerCallbacks, IBefor
         }
     }
 
-
-    // Called every frame *before* Fusion’s simulation tick
-
     public void BeforeUpdate()
     {
-        Debug.Log("BeforeUpdate called");
-        // Movement input
-        _moveInput = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        if (_resetInput)
+        {
+            _accumulatedInput = default;
+            _resetInput = false;
+        }
 
-        // Reset buttons each frame
-        _buttons = default;
+        // Movement
+        _accumulatedInput.moveInput = new Vector2(
+            Input.GetAxisRaw("Horizontal"),
+            Input.GetAxisRaw("Vertical")
+        );
 
-        // Accumulate single-frame button presses
-        _buttons.Set(InputButton.Jump, Input.GetKeyDown(KeyCode.Space));
+        // Buttons
+        NetworkButtons buttons = default;
+        buttons.Set(InputButton.Jump, Input.GetKeyDown(KeyCode.Space));
+        _accumulatedInput.buttons = new NetworkButtons(_accumulatedInput.buttons.Bits | buttons.Bits);
+
+        // Camera yaw (local player only)
+        if (Camera.main != null)
+        {
+            _accumulatedInput.cameraYaw = Camera.main.transform.eulerAngles.y;
+        }
     }
 
     public void OnInput(NetworkRunner runner, NetworkInput input)
     {
-        Debug.Log("OnInput called");
-        // Package into NetworkInputData
-        NetworkInputData data = new NetworkInputData
-        {
-            moveInput = _moveInput,
-            buttons = _buttons
-        };
-
-        input.Set(data);
-
-        // Clear one-frame buttons after sending
-        _buttons = default;
+        input.Set(_accumulatedInput);
+        _resetInput = true;
     }
 
     // ---------- Required stubs ----------
@@ -84,17 +84,7 @@ public class InputHandler : SimulationBehaviour, INetworkRunnerCallbacks, IBefor
     public void OnObjectEnterAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnObjectExitAOI(NetworkRunner runner, NetworkObject obj, PlayerRef player) { }
     public void OnReliableDataProgress(NetworkRunner runner, PlayerRef player, ReliableKey key, float progress) { }
-
-    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason)
-    {
-    }
-
-    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data)
-    {
-    }
-
-    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input)
-    {
-    }
-
+    public void OnDisconnectedFromServer(NetworkRunner runner, NetDisconnectReason reason) { }
+    public void OnReliableDataReceived(NetworkRunner runner, PlayerRef player, ReliableKey key, ArraySegment<byte> data) { }
+    public void OnInputMissing(NetworkRunner runner, PlayerRef player, NetworkInput input) { }
 }

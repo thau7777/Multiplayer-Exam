@@ -1,10 +1,12 @@
 ﻿using Fusion;
+using Fusion.Photon.Realtime;
 using Fusion.Sockets;
 using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Events;
 using UnityEngine.SceneManagement;
+using static Unity.Collections.Unicode;
 
 public class RunnerManager : MonoBehaviour, INetworkRunnerCallbacks
 {
@@ -135,8 +137,16 @@ public class RunnerManager : MonoBehaviour, INetworkRunnerCallbacks
                 SpawnPlayer(player);
             }
 
+            var doors = FindObjectsByType<Door>(FindObjectsSortMode.None);
+            if (doors.Length > 0)
+            {
+                var randomDoor = doors[UnityEngine.Random.Range(0, doors.Length)].GetComponent<NetworkObject>();
+
+                GameManager.Instance.Rpc_ChooseExitDoor(randomDoor);
+            }
         }
     }
+    
 
     // in lobby
     public void OnPlayerJoined(NetworkRunner runner, PlayerRef player)
@@ -156,8 +166,13 @@ public class RunnerManager : MonoBehaviour, INetworkRunnerCallbacks
     }
 
     // ----------------- Player Spawning -----------------
-    private void SpawnPlayer(PlayerRef player)
+    public void SpawnPlayer(PlayerRef player)
     {
+        var oldObject = _runner.GetPlayerObject(player);
+        if (oldObject != null)
+        {
+            _runner.Despawn(oldObject);
+        }
         Vector3 pos = Vector3.zero;
         if (spawnPoints != null && spawnPoints.Length > 0)
             pos = spawnPoints[UnityEngine.Random.Range(0, spawnPoints.Length)].position;
@@ -167,7 +182,6 @@ public class RunnerManager : MonoBehaviour, INetworkRunnerCallbacks
         var obj = _runner.Spawn(playerPrefab, pos, Quaternion.identity, player);
         _runner.SetPlayerObject(player, obj); // ✅ critical step
     }
-
     // ----------------- Other callbacks (minimal stubs) -----------------
     public void OnInput(NetworkRunner runner, NetworkInput input) { }
     public void OnInputMissing(NetworkRunner runner, PlayerRef player, ref NetworkInput input) { }
